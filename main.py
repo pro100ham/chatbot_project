@@ -57,7 +57,10 @@ async def ask_stream(question: str):
                     current_content = data.get("message", {}).get("content", "")
                     
                     if current_content:
-                        content += current_content
+                        current_content = (
+                            data.get("response") or
+                            data.get("message", {}).get("content", "")
+                        )
                         yield f"data: {current_content}\n\n"
 
                 except json.JSONDecodeError:
