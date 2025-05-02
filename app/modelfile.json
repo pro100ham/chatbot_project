@@ -1,0 +1,6 @@
+{
+    "num_gpu_layers": 35,
+    "low_vram": false,
+    "use_mmap": true,
+    "use_mlock": true
+  }
