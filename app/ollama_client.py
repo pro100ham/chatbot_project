@@ -12,9 +12,9 @@ class OllamaClient:
         env_mode = os.getenv("ACTIVE_ENV", "local")
 
         if env_mode == "docker":
-            self.url = os.getenv("DOCKER_OLLAMA_URL") + "/chat"
+            self.url = os.getenv("DOCKER_OLLAMA_URL") + "/generate"
         else:
-            self.url = os.getenv("LOCAL_OLLAMA_URL") + "/chat"
+            self.url = os.getenv("LOCAL_OLLAMA_URL") + "/generate"
             
         if not self.url:
             raise ValueError("Ollama URL is not defined. Check your .env configuration.")
@@ -69,7 +69,7 @@ class OllamaClient:
     def postCall(self, model_name: str):
         try:
             payload = {"name": model_name}
-            response = requests.post(f"{self.url}/api/pull", json=payload)
+            response = requests.post(f"{self.url}/pull", json=payload)
             response.raise_for_status()
             print(f"✅ Model '{model_name}' pulled successfully")
         except requests.exceptions.RequestException as e:
