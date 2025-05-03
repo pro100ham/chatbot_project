@@ -29,7 +29,7 @@ class OllamaClient:
         self.index = faiss.IndexFlatL2(self.dimension)
         self.index.add(self.embeddings)
 
-    def retrieve_context(self, question: str, top_k: int = 3) -> str:
+    def retrieve_context(self, question: str, top_k: int = 1) -> str:
         question_vector = self.model.encode([question], convert_to_numpy=True)
         distances, indices = self.index.search(question_vector, top_k)
         context_chunks = [self.chunks[i] for i in indices[0]]
