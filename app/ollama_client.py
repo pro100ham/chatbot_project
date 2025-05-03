@@ -12,9 +12,9 @@ class OllamaClient:
         env_mode = os.getenv("ACTIVE_ENV", "local")
 
         if env_mode == "docker":
-            self.url = os.getenv("DOCKER_OLLAMA_URL") + "/chat"
+            self.url = os.getenv("DOCKER_OLLAMA_URL") + "/generate"
         else:
-            self.url = os.getenv("LOCAL_OLLAMA_URL") + "/chat"
+            self.url = os.getenv("LOCAL_OLLAMA_URL") + "/generate"
             
         if not self.url:
             raise ValueError("Ollama URL is not defined. Check your .env configuration.")
