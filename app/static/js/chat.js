@@ -19,6 +19,10 @@ document.getElementById("user-input").addEventListener("keydown", function (even
 });
 
 function sendMessage() {
+    if (window.currentEventSource) {
+        window.currentEventSource.close();
+    }
+
     let userInput = document.getElementById("user-input").value;
     if (userInput.trim() === "") return;
 
@@ -36,17 +40,29 @@ function sendMessage() {
     chatBox.appendChild(botMessage);
 
     const eventSource = new EventSource(`/ask-stream?question=${encodeURIComponent(userInput)}`);
+    window.currentEventSource = eventSource;
 
+    eventSource.addEventListener("end", function () {
+        eventSource.close();
+    });
+    
     let fullText = "";
     botMessage.classList.add("typing");
 
     eventSource.onmessage = function (event) {
-        fullText += event.data;
-        botMessage.innerHTML = fullText.replace(/\n/g, "<br>");
-        chatBox.scrollTop = chatBox.scrollHeight;
+        if (event.data) {
+            fullText += event.data;
+            botMessage.innerHTML = fullText.replace(/\n/g, "<br>");
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
     };
 
-    eventSource.onerror = function () {
+    eventSource.onopen = () => {
+        console.log("✅ EventSource connection opened");
+    };
+    
+    eventSource.onerror = (error) => {
+        console.error("❌ EventSource error", error);
         botMessage.classList.remove("typing");
         eventSource.close();
     };

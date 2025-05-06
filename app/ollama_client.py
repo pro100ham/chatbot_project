@@ -1,3 +1,5 @@
+import json
+from fastapi import logger
 import requests
 from sentence_transformers import SentenceTransformer
 import faiss
@@ -8,9 +10,9 @@ load_dotenv()
 
 class OllamaClient:
     def __init__(self, text_path="app/documents/university_texts.txt"):
-
         env_mode = os.getenv("ACTIVE_ENV", "local")
-
+        self.MODEL_NAME = os.getenv("MODEL_NAME", "phi:2")
+        
         if env_mode == "docker":
             self.url = os.getenv("DOCKER_OLLAMA_URL") + "/generate"
         else:
@@ -41,7 +43,7 @@ class OllamaClient:
 
         payload = {
             "model": "mistral",
-            "messages": [{"role": "user", "content": prompt}],
+            "prompt": [{"role": "user", "content": prompt}],
             "stream": False
         }
 
@@ -51,26 +53,39 @@ class OllamaClient:
 
     def ask_stream(self, question: str):
         context = self.retrieve_context(question)
-        prompt = f"Контекст:\n{context}\n\nПитання: {question}\nВідповідь:"
+        prompt = f"Український Контекст: \n{context}\n\nПитання: {question}\nВідповідь:"
 
         payload = {
-            "model": "mistral",
-            "messages": [{"role": "user", "content": prompt}],
+            "model": self.MODEL_NAME,
+            "prompt": prompt,
             "stream": True
         }
-
-        response = requests.post(self.url, json=payload, stream=True)
-        response.raise_for_status()
-
-        for line in response.iter_lines():
-            if line:
-                yield line.decode("utf-8")
-                
-    def postCall(self, model_name: str):
-        try:
-            payload = {"name": model_name}
-            response = requests.post(f"{self.url}/pull", json=payload)
+        
+        with requests.post(self.url, json=payload, stream=True) as response:
             response.raise_for_status()
-            print(f"✅ Model '{model_name}' pulled successfully")
+            for line in response.iter_lines():
+                if not line:
+                    continue
+                try:
+                    #data = json.loads(line.decode("utf-8"))
+                     yield line.decode("utf-8")
+                except json.JSONDecodeError:
+                    continue
+                
+    def postCall(self,):
+        try:
+            env_mode = os.getenv("ACTIVE_ENV", "local")
+            MODEL_NAME = os.getenv("MODEL_NAME", "phi:2")
+
+            payload = {"name": MODEL_NAME}
+
+            if env_mode == "docker":
+                url = os.getenv("DOCKER_OLLAMA_URL") + "/pull"
+            else:
+                url = os.getenv("LOCAL_OLLAMA_URL") + "/pull"
+                
+            response = requests.post(url, json=payload)
+            response.raise_for_status()
+            print(f"✅ Model '{MODEL_NAME}' pulled successfully")
         except requests.exceptions.RequestException as e:
-            print(f"❌ Failed to pull model '{model_name}': {e}")
+            print(f"❌ Failed to pull model '{MODEL_NAME}': {e}")

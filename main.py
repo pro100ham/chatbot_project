@@ -12,7 +12,6 @@ import time
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
-MODEL_NAME = "mistral"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,8 +28,12 @@ app.add_middleware(
 )
 
 @app.on_event("startup")
-def load_model_on_startup():
-    client.postCall(MODEL_NAME)
+async def load_model_on_startup():
+    client.postCall()
+
+@app.on_event("shutdown")
+def shutdown_event():
+    logger.info("Application shutdown")
 
 # Головна сторінка
 @app.get("/", response_class=HTMLResponse)
@@ -42,37 +45,40 @@ async def ask(request: Request, question: str):
     answer = client.ask(question)
     return StreamingResponse(content={"answer": str(answer)})
 
+# @app.get("/ask-stream")
+# async def ask_stream(question: str):
+#     def event_stream():
+#         start_time = time.time()
+#         buffer = ""
+#         for chunk in client.ask_stream(question):
+#             try:
+#                 buffer += chunk
+#                 data = json.loads(chunk.decode("utf-8"))
+#                 response_piece = data.get("response")
+#                 if response_piece:
+#                     yield f"data: {response_piece}\n\n"
+#                 if data.get("done"):
+#                     break
+#             except Exception as e:
+#                 logger.error(f"Chunk decode or parse error: {e}")
+#                 continue
+#     end_time = time.time()
+#     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
 @app.get("/ask-stream")
 async def ask_stream(question: str):
-    logger.info(f"Stream started for question: {question}")
-
     def event_stream():
-        start_time = time.time()
-        try:
-            content = ""
+        for chunk in client.ask_stream(question):
+            try:
+                # Якщо chunk — це вже рядок (str), не декодуємо
+                data = json.loads(chunk)
+                response_piece = data.get("response")
+                if response_piece:
+                    yield f"data: {response_piece}\n\n"
+                if data.get("done"):
+                    break
+            except Exception as e:
+                logger.error(f"Chunk decode or parse error: {e}")
+                continue
 
-            for chunk in client.ask_stream(question):
-                try:
-                    data = json.loads(chunk)
-                    current_content = data.get("message", {}).get("content", "")
-                    
-                    if current_content:
-                        current_content = (
-                            data.get("response") or
-                            data.get("message", {}).get("content", "")
-                        )
-                        yield f"data: {current_content}\n\n"
-
-                except json.JSONDecodeError:
-                    logger.error("JSON decoding error in chunk response")
-                    continue
-            
-            end_time = time.time()
-            response_time = end_time - start_time
-            logger.info(f"Total response time for question '{question}': {response_time:.2f} seconds")
-        except GeneratorExit:
-            pass
-        finally:
-            end_time = time.time()
-            logging.info(f"Total response time: {end_time - start_time:.2f} seconds")
     return StreamingResponse(event_stream(), media_type="text/event-stream")
