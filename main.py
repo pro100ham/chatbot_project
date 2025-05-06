@@ -67,18 +67,20 @@ async def ask(request: Request, question: str):
 
 @app.get("/ask-stream")
 async def ask_stream(question: str):
+    start_time = time.time()
     def event_stream():
         for chunk in client.ask_stream(question):
             try:
-                # Якщо chunk — це вже рядок (str), не декодуємо
                 data = json.loads(chunk)
                 response_piece = data.get("response")
                 if response_piece:
                     yield f"data: {response_piece}\n\n"
                 if data.get("done"):
+                    end_time = time.time()
+                    response_time = end_time - start_time
+                    logger.info(f"Total response time for question '{question}': {response_time:.2f} seconds")
                     break
             except Exception as e:
                 logger.error(f"Chunk decode or parse error: {e}")
                 continue
-
     return StreamingResponse(event_stream(), media_type="text/event-stream")

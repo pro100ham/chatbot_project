@@ -55,6 +55,8 @@ class OllamaClient:
         context = self.retrieve_context(question)
         prompt = f"Український Контекст: \n{context}\n\nПитання: {question}\nВідповідь:"
 
+        print(f"Контекст '{context}'")
+        
         payload = {
             "model": self.MODEL_NAME,
             "prompt": prompt,
