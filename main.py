@@ -45,26 +45,6 @@ async def ask(request: Request, question: str):
     answer = client.ask(question)
     return StreamingResponse(content={"answer": str(answer)})
 
-# @app.get("/ask-stream")
-# async def ask_stream(question: str):
-#     def event_stream():
-#         start_time = time.time()
-#         buffer = ""
-#         for chunk in client.ask_stream(question):
-#             try:
-#                 buffer += chunk
-#                 data = json.loads(chunk.decode("utf-8"))
-#                 response_piece = data.get("response")
-#                 if response_piece:
-#                     yield f"data: {response_piece}\n\n"
-#                 if data.get("done"):
-#                     break
-#             except Exception as e:
-#                 logger.error(f"Chunk decode or parse error: {e}")
-#                 continue
-#     end_time = time.time()
-#     return StreamingResponse(event_stream(), media_type="text/event-stream")
-
 @app.get("/ask-stream")
 async def ask_stream(question: str):
     start_time = time.time()
