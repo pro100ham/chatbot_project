@@ -1,4 +1,4 @@
-import json
+from transformers import AutoTokenizer
 from fastapi import logger
 import requests
 from sentence_transformers import SentenceTransformer
@@ -12,6 +12,7 @@ class OllamaClient:
     def __init__(self, text_path="app/documents/university_texts.txt"):
         env_mode = os.getenv("ACTIVE_ENV", "local")
         self.MODEL_NAME = os.getenv("MODEL_NAME", "phi:2")
+        self.FORMAT_HINT = "Відформатуй з абзацами, жирними заголовками та списками, якщо доречно."
         
         if env_mode == "docker":
             self.url = os.getenv("DOCKER_OLLAMA_URL") + "/generate"
@@ -24,6 +25,7 @@ class OllamaClient:
         with open(text_path, encoding="utf-8") as f:
             self.chunks = f.read().split("\n\n")
 
+        self.tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-1.3B")
         self.model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
         self.embeddings = self.model.encode(self.chunks, convert_to_numpy=True)
 
@@ -31,28 +33,27 @@ class OllamaClient:
         self.index = faiss.IndexFlatL2(self.dimension)
         self.index.add(self.embeddings)
 
-    def retrieve_context(self, question: str, top_k: int = 3, max_chars: int = 1900) -> str:
+    def retrieve_context(self, question: str, top_k: int = 3, max_tokens: int = 1800) -> str:
         question_vector = self.model.encode([question], convert_to_numpy=True)
         distances, indices = self.index.search(question_vector, top_k)
         context_chunks = [self.chunks[i] for i in indices[0]]
 
         context = "\n".join(context_chunks)
-        
-        # Стискання контексту до max_chars символів
-        if len(context) > max_chars:
-            context = context[:max_chars] + "..."
+        context = self.truncate_by_tokens(context, max_tokens)
 
         return context
 
-    def truncate_text(text, max_chars=2045):
-        import re
-        text = re.sub(r'\s+', ' ', text).strip()
-        return text[:max_chars] + "..." if len(text) > max_chars else text
-
+    def truncate_by_tokens(self, prompt: str, max_tokens: int = 2048) -> str:
+        tokens = self.tokenizer.encode(prompt, add_special_tokens=False)
+        if len(tokens) <= max_tokens:
+            return prompt
+        truncated_tokens = tokens[-max_tokens:]
+        return self.tokenizer.decode(truncated_tokens, skip_special_tokens=True)
 
     def ask(self, question: str):
         context = self.retrieve_context(question)
         prompt = f"Контекст:\n{context}\n\nПитання: {question}\nВідповідь:"
+        prompt = self.truncate_by_tokens(prompt, max_tokens=2048)
 
         payload = {
             "model": self.MODEL_NAME,
@@ -66,7 +67,8 @@ class OllamaClient:
 
     def ask_stream(self, question: str):
         context = self.retrieve_context(question)
-        prompt = f"Контекст:\n{context}\n\nПитання: {question}\nВідповідь (відформатуй з абзацами, жирними заголовками та списками, якщо доречно)"
+        prompt = f"Контекст:\n{context}\n\nПитання: {question}\nВідповідь ({self.FORMAT_HINT})"
+        prompt = self.truncate_by_tokens(prompt, max_tokens=2048)   
 
         payload = {
             "model": self.MODEL_NAME,
@@ -98,8 +100,7 @@ class OllamaClient:
             print(f"✅ Model '{MODEL_NAME}' pulled successfully")
         except requests.exceptions.RequestException as e:
             print(f"❌ Failed to pull model '{MODEL_NAME}': {e}")
-            
-            
+             
     def preSessionConfiguration(self):
         prompt = (
             f"Ти онлайн асистент Українського Католицького Університету. "
