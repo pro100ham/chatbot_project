@@ -12,7 +12,7 @@ class OllamaClient:
     def __init__(self, text_path="app/documents/university_texts.txt"):
         env_mode = os.getenv("ACTIVE_ENV", "local")
         self.MODEL_NAME = os.getenv("MODEL_NAME", "phi:2")
-        self.FORMAT_HINT = "Відформатуй з абзацами, жирними заголовками та списками, якщо доречно."
+        self.FORMAT_HINT =  "стисло, з html абзацами і списками, якщо доречно, до 100 слів"
         
         if env_mode == "docker":
             self.url = os.getenv("DOCKER_OLLAMA_URL") + "/generate"
@@ -25,7 +25,7 @@ class OllamaClient:
         with open(text_path, encoding="utf-8") as f:
             self.chunks = f.read().split("\n\n")
 
-        self.tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-1.3B")
+        self.tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
         self.model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
         self.embeddings = self.model.encode(self.chunks, convert_to_numpy=True)
 
@@ -33,7 +33,7 @@ class OllamaClient:
         self.index = faiss.IndexFlatL2(self.dimension)
         self.index.add(self.embeddings)
 
-    def retrieve_context(self, question: str, top_k: int = 3, max_tokens: int = 1800) -> str:
+    def retrieve_context(self, question: str, top_k: int = 2, max_tokens: int = 1800) -> str:
         question_vector = self.model.encode([question], convert_to_numpy=True)
         distances, indices = self.index.search(question_vector, top_k)
         context_chunks = [self.chunks[i] for i in indices[0]]
@@ -44,7 +44,7 @@ class OllamaClient:
         return context
 
     def truncate_by_tokens(self, prompt: str, max_tokens: int = 2048) -> str:
-        tokens = self.tokenizer.encode(prompt, add_special_tokens=False)
+        tokens = self.tokenizer.encode(prompt, add_special_tokens=False, truncation=True, max_length=2048)
         if len(tokens) <= max_tokens:
             return prompt
         truncated_tokens = tokens[-max_tokens:]
@@ -104,7 +104,7 @@ class OllamaClient:
     def preSessionConfiguration(self):
         prompt = (
             f"Ти онлайн асистент Українського Католицького Університету. "
-            f"Відаовіді повинні бути максимально стислі. Максимум 150 слів.\n\n"
+            f"Відповідай коротко, чітко та ввічливо, максимум 3 речення. "
             f"Тебе звати Оленка (жіноче ім'я). Ти допомагаєш користувачам дізнатись більше про університет.\n\n"
             f"Привітайся і запропонуй допомогу."
         )
