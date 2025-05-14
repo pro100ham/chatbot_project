@@ -22,6 +22,8 @@ services:
       - ollama-data:/root/.ollama
     networks:
       - chatbot-net
+    environment:
+      - OLLAMA_NUM_THREADS=8  # кількість потоків CPU
 
 volumes:
   ollama-data:

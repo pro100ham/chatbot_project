@@ -3,8 +3,8 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 import time
 
-BASE_URL = "https://mon.gov.ua/"  
-MAX_DEPTH = 8  # максимальна глибина переходів
+BASE_URL = "https://wiki.ucu.edu.ua/"  
+MAX_DEPTH = 8 # максимальна глибина переходів
 visited_urls = set()
 text_data = []
 
@@ -26,9 +26,10 @@ def scrape_page(url, depth=0):
         for a in soup.find_all("a", href=True):
             link = urljoin(BASE_URL, a["href"])
             if link.startswith(BASE_URL) and link not in visited_urls:
-                visited_urls.add(link)
-                time.sleep(1)
-                scrape_page(link, depth=depth+1) 
+                if link.find("?do=") == -1 and link.find("/en:") == -1:
+                    visited_urls.add(link)
+                    time.sleep(1)
+                    scrape_page(link, depth=depth+1) 
     except Exception as e:
         print(f"Error scraping {url}: {e}")
 

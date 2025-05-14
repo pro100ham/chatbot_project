@@ -1,20 +1,18 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from app.ollama_client import OllamaClient
 from fastapi.staticfiles import StaticFiles
-import logging
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import Request
-from fastapi.responses import StreamingResponse
+import logging
 import json
 import time
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 templates = Jinja2Templates(directory="app/templates")
 client = OllamaClient()
@@ -35,32 +33,44 @@ async def load_model_on_startup():
 def shutdown_event():
     logger.info("Application shutdown")
 
-# Головна сторінка
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
-@app.get("/ask", response_class=HTMLResponse)
+@app.get("/ask", response_class=JSONResponse)
 async def ask(request: Request, question: str):
     answer = client.ask(question)
-    return StreamingResponse(content={"answer": str(answer)})
+    return JSONResponse(content={"answer": str(answer)})
+
+@app.get("/intro")
+async def intro():
+     return StreamingResponse(
+        stream_ollama_response(client.preSessionConfiguration)(),
+        media_type="text/event-stream"
+    )
+
 
 @app.get("/ask-stream")
 async def ask_stream(question: str):
-    start_time = time.time()
-    def event_stream():
-        for chunk in client.ask_stream(question):
+    return StreamingResponse(
+        stream_ollama_response(client.ask_stream, question)(),
+        media_type="text/event-stream"
+    )
+
+def stream_ollama_response(generator_func, *args):
+    def stream():
+        for chunk in generator_func(*args):
             try:
+                if isinstance(chunk, bytes):
+                    chunk = chunk.decode("utf-8")
+
                 data = json.loads(chunk)
                 response_piece = data.get("response")
                 if response_piece:
                     yield f"data: {response_piece}\n\n"
                 if data.get("done"):
-                    end_time = time.time()
-                    response_time = end_time - start_time
-                    logger.info(f"Total response time for question '{question}': {response_time:.2f} seconds")
                     break
             except Exception as e:
-                logger.error(f"Chunk decode or parse error: {e}")
+                logger.error(f"Chunk parse error: {e}")
                 continue
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    return stream

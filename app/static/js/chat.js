@@ -5,10 +5,23 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const greeting = document.createElement("div");
     greeting.className = "bot-message";
-    greeting.innerHTML = "Привіт! Я твій віртуальний помічник. Запитай мене про щось.";
-    
     chatBox.appendChild(greeting);
-    chatBox.scrollTop = chatBox.scrollHeight;
+
+    const eventSource = new EventSource("/intro");
+
+    let fullText = "";
+    greeting.classList.add("typing");
+
+    eventSource.onmessage = function (event) {
+        fullText += event.data;
+        greeting.innerHTML = fullText.replace(/\n/g, "<br>");
+        chatBox.scrollTop = chatBox.scrollHeight;
+    };
+
+    eventSource.onerror = function () {
+        greeting.classList.remove("typing");
+        eventSource.close();
+    };
 });
 
 document.getElementById("user-input").addEventListener("keydown", function (event) {
