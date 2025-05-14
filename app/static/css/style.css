@@ -146,3 +146,13 @@ body {
     50% { content: "."; }
     100% { content: ".."; }
 }
+
+.bot-message a {
+    color: #82aaff; /* ніжно-синій, приємний до ока на темному фоні */
+    text-decoration: underline;
+    transition: color 0.2s ease;
+}
+
+.bot-message a:hover {
+    color: #a5c8ff; /* світліший варіант при наведенні */
+}
