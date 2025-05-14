@@ -33,7 +33,7 @@ class OllamaClient:
         self.index = faiss.IndexFlatL2(self.dimension)
         self.index.add(self.embeddings)
 
-    def retrieve_context(self, question: str, top_k: int = 2, max_tokens: int = 1800) -> str:
+    def retrieve_context(self, question: str, top_k: int = 2, max_tokens: int = 1900) -> str:
         question_vector = self.model.encode([question], convert_to_numpy=True)
         distances, indices = self.index.search(question_vector, top_k)
         context_chunks = [self.chunks[i] for i in indices[0]]
@@ -104,6 +104,7 @@ class OllamaClient:
     def preSessionConfiguration(self):
         prompt = (
             f"Ти онлайн асистент Українського Католицького Університету. "
+            f"Основна мова спілкування це українська та англіська. "
             f"Відповідай коротко, чітко та ввічливо, максимум 3 речення. "
             f"Тебе звати Оленка (жіноче ім'я). Ти допомагаєш користувачам дізнатись більше про університет.\n\n"
             f"Привітайся і запропонуй допомогу."

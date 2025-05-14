@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", function () {
     eventSource.onmessage = function (event) {
         fullText += event.data;
         greeting.innerHTML = fullText.replace(/\n/g, "<br>");
+        const chatBox = document.getElementById("chat-box");
         chatBox.scrollTop = chatBox.scrollHeight;
     };
 
