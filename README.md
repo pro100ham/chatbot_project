@@ -105,7 +105,7 @@ curl http://localhost:11434/api/pull -d '{"name": "phi"}'
 
 ## ✨ UI Preview
 
-*Скріншот додати вручну сюди, якщо потрібно*
+![Chat Preview](app/static/img/chat_preview.png)
 
 ---
 
