@@ -12,7 +12,7 @@ class OllamaClient:
     def __init__(self, text_path="app/documents/university_texts.txt"):
         env_mode = os.getenv("ACTIVE_ENV", "local")
         self.MODEL_NAME = os.getenv("MODEL_NAME", "phi:2")
-        self.FORMAT_HINT =  "стисло, з html абзацами і списками, якщо доречно, до 100 слів"
+        self.FORMAT_HINT =  "Відформатуй результат у HTML (використовуй <p>, <ul>, <li>, <strong>, якщо доречно, до 100 слів"
         
         if env_mode == "docker":
             self.url = os.getenv("DOCKER_OLLAMA_URL") + "/generate"
