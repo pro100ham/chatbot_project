@@ -1,9 +1,10 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from app.ollama_client import OllamaClient
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from app.integration.ticketService import CRMClient
 import logging
 import json
 import time
@@ -16,6 +17,7 @@ logging.basicConfig(level=logging.INFO)
 
 templates = Jinja2Templates(directory="app/templates")
 client = OllamaClient()
+crm_client = CRMClient();
 
 app.add_middleware(
     CORSMiddleware,
@@ -39,8 +41,19 @@ async def home(request: Request):
 
 @app.get("/ask", response_class=JSONResponse)
 async def ask(request: Request, question: str):
-    answer = client.ask(question)
-    return JSONResponse(content={"answer": str(answer)})
+    result = client.ask(question)
+    if isinstance(result, dict):
+        return JSONResponse(content=result)
+    return JSONResponse(content={"answer": str(result)})
+
+@app.post("/submit_crm_ticket", response_class=JSONResponse)
+async def submit_crm_ticket(
+    name: str = Form(...),
+    email: str = Form(...),
+    question: str = Form(...)
+):
+    crm_response = crm_client.forward_to_crm(question=question, answer="Користувач подав форму тікету.", user_email=email)
+    return JSONResponse(content={"status": "success", "crm_response": crm_response})
 
 @app.get("/intro")
 async def intro():
@@ -48,7 +61,6 @@ async def intro():
         stream_ollama_response(client.preSessionConfiguration)(),
         media_type="text/event-stream"
     )
-
 
 @app.get("/ask-stream")
 async def ask_stream(question: str):
