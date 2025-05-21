@@ -69,6 +69,10 @@ async def ask_stream(question: str):
         media_type="text/event-stream"
     )
 
+@app.get("/pullmodel")
+async def load_model():
+    client.postCall()
+    
 def stream_ollama_response(generator_func, *args):
     def stream():
         for chunk in generator_func(*args):

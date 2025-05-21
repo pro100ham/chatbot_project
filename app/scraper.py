@@ -1,42 +1,80 @@
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 import time
 
-BASE_URL = "https://wiki.ucu.edu.ua/"  
-MAX_DEPTH = 8 # максимальна глибина переходів
-visited_urls = set()
-text_data = []
+START_URLS = [
+    "https://wiki.ucu.edu.ua/start",
+    "https://ucu.edu.ua/index",
+    "https://vstup.ucu.edu.ua/start"
+]
 
-def scrape_page(url, depth=0):
-    if depth > MAX_DEPTH:
-        return 
+MAX_DEPTH = 40
+HEADERS = {
+    "User-Agent": "Mozilla/5.0"
+}
 
-    print(f"Scraping: {url} (depth={depth})")
-    try:
-        response = requests.get(url, timeout=10)
-        if "text/html" not in response.headers.get("Content-Type", ""):
+def get_domain(url):
+    return urlparse(url).netloc
+
+def scrape_site(start_url):
+    visited = set()
+    text_data = []
+    domain = get_domain(start_url)
+
+    def scrape_page(url, depth):
+        if depth > MAX_DEPTH or url in visited:
             return
-        soup = BeautifulSoup(response.text, "html.parser")
-        main = soup.find("main") or soup.body
-        if main:
-            texts = main.stripped_strings
-            combined = " ".join(texts)
-            text_data.append(combined)
-        for a in soup.find_all("a", href=True):
-            link = urljoin(BASE_URL, a["href"])
-            if link.startswith(BASE_URL) and link not in visited_urls:
-                if link.find("?do=") == -1 and link.find("/en:") == -1:
-                    visited_urls.add(link)
-                    time.sleep(1)
-                    scrape_page(link, depth=depth+1) 
-    except Exception as e:
-        print(f"Error scraping {url}: {e}")
 
-# Стартуємо з базової глибини 0
-visited_urls.add(BASE_URL)
-scrape_page(BASE_URL, depth=0)
+        visited.add(url)
+        print(f"🔎 Scraping: {url} (depth={depth})")
 
+        try:
+            response = requests.get(url, headers=HEADERS, timeout=10)
+            if response.status_code != 200 or "text/html" not in response.headers.get("Content-Type", ""):
+                print(f"🚫 Skipping (non-HTML or blocked): {url}")
+                return
+
+            soup = BeautifulSoup(response.text, "html.parser")
+            main = soup.find("main") or soup.body
+            title = soup.title.string.strip() if soup.title else ""
+            header = main.find("h1").get_text(strip=True) if main and main.find("h1") else ""
+
+            if main:
+                texts = main.stripped_strings
+                combined = f"{title}\n{header}\n" + " ".join(texts)
+                if len(combined) > 100 and combined not in text_data:
+                    text_data.append(combined)
+
+            for a in soup.find_all("a", href=True):
+                link = urljoin(start_url, a["href"].split("#")[0])
+
+                if (
+                    get_domain(link) == get_domain(start_url)
+                    and link not in visited
+                    and "?do=" not in link
+                    and "/en:" not in link
+                    and not any(x in link for x in ["#top", "#nav", "/feed"])
+                ):
+                    scrape_page(link, depth + 1)
+
+        except Exception as e:
+            print(f"❌ Error scraping {url}: {e}")
+
+    # 🔁 Запускаємо рекурсію
+    scrape_page(start_url, 0)
+
+    return domain, text_data
+
+# 🔁 Обходимо всі сайти
+all_blocks = []
+for url in START_URLS:
+    domain, chunks = scrape_site(url)
+    for i, block in enumerate(chunks, 1):
+        all_blocks.append(f"[Сайт: {domain}] [Розділ {i}]\n{block.strip()}\n\n")
+
+# 💾 Запис
 with open("university_texts.txt", "w", encoding="utf-8") as f:
-    for block in text_data:
-        f.write(block + "\n\n")
+    f.writelines(all_blocks)
+
+print(f"✅ Готово. Загальна кількість блоків: {len(all_blocks)}")
