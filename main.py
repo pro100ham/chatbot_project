@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 
 templates = Jinja2Templates(directory="app/templates")
 client = OllamaClient()
-crm_client = CRMClient();
+crm_client = CRMClient()
 
 app.add_middleware(
     CORSMiddleware,
