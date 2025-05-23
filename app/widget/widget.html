@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <title>Чат з ботом</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    .close-button {
+      position: fixed;
+      top: 0;
+      right: 16px;
+      transform: translateY(-50%);
+      background: rgba(40, 40, 40, 0.85);
+      border: none;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 99999;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    .close-button:hover {
+      background-color: rgba(255, 80, 80, 0.9);
+      transform: scale(1.08);
+    }
+
+    .close-button svg {
+      fill: #fff;
+      width: 20px;
+      height: 20px;
+    }
+
+    .close-button::after {
+      position: absolute;
+      top: 42px;
+      right: 0;
+      background: #333;
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translateY(-5px);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      pointer-events: none;
+    }
+
+    .close-button:hover::after {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .chat-container {
+      padding-top: 20px;
+    }
+
+    @media (max-width: 500px) {
+      .close-button {
+        top: 8px;
+        right: 10px;
+        width: 32px;
+        height: 32px;
+      }
+      .close-button svg {
+        width: 18px;
+        height: 18px;
+      }
+    }
+  </style>
+
+</head>
+<body>
+
+  <button class="close-button" onclick="closeWidget()">
+    <svg viewBox="0 0 24 24">
+      <path d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7a1 1 0 0 0-1.41 1.41L10.59 12l-4.89 4.89a1 1 0 1 0 1.41 1.41L12 13.41l4.89 4.89a1 1 0 0 0 1.41-1.41L13.41 12l4.89-4.89a1 1 0 0 0 0-1.4z"/>
+    </svg>
+  </button>
+
+  <div class="chat-container" id="chat-container">
+    <div class="chat-box" id="messages"></div>
+    <div class="input-row">
+      <input type="text" id="user-input" class="chat-input" placeholder="Напишіть повідомлення..." />
+      <button class="send-button" onclick="send()">➤</button>
+    </div>
+  </div>
+
+  <script>
+    const messages = document.getElementById("messages");
+
+    function appendMessage(text, fromBot = false) {
+      const div = document.createElement("div");
+      div.className = fromBot ? "bot-message" : "user-message";
+      div.innerHTML = text.replace(/\n/g, "<br>");
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function send() {
+      const input = document.getElementById("user-input");
+      const question = input.value.trim();
+      if (!question) return;
+      appendMessage(question, false);
+      input.value = "";
+
+      const eventSource = new EventSource(`/ask-stream?question=${encodeURIComponent(question)}`);
+      let full = "";
+      let botDiv = document.createElement("div");
+      botDiv.className = "bot-message typing";
+      messages.appendChild(botDiv);
+
+      eventSource.onmessage = function (event) {
+        full += event.data;
+        botDiv.innerHTML = full.replace(/\n/g, "<br>");
+        messages.scrollTop = messages.scrollHeight;
+      };
+
+      eventSource.onerror = function () {
+        eventSource.close();
+        botDiv.classList.remove("typing");
+      };
+    }
+
+    function closeWidget() {
+      const container = document.getElementById("chat-container");
+      container.style.transition = "opacity 0.3s ease, transform 0.3s ease";
+      container.style.opacity = "0";
+      container.style.transform = "scale(0.95)";
+      setTimeout(() => {
+        window.parent.postMessage("close-chatbot-widget", "*");
+      }, 300);
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const eventSource = new EventSource("/intro");
+      let greet = "";
+      let greetDiv = document.createElement("div");
+      greetDiv.className = "bot-message typing";
+      messages.appendChild(greetDiv);
+
+      eventSource.onmessage = function (event) {
+        greet += event.data;
+        greetDiv.innerHTML = greet.replace(/\n/g, "<br>");
+        messages.scrollTop = messages.scrollHeight;
+      };
+
+      eventSource.onerror = function () {
+        eventSource.close();
+        greetDiv.classList.remove("typing");
+      };
+    });
+  </script>
+</body>
+</html>

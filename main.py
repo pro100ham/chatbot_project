@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 templates = Jinja2Templates(directory="app/templates")
+widgets = Jinja2Templates(directory="app/widget")
+
 client = OllamaClient()
 crm_client = CRMClient()
 
@@ -72,7 +74,15 @@ async def ask_stream(question: str):
 @app.get("/pullmodel")
 async def load_model():
     client.postCall()
-    
+
+@app.get("/widget", response_class=HTMLResponse)
+async def chatbot_widget(request: Request):
+    return widgets.TemplateResponse("widget.html", {"request": request})
+
+@app.get("/testwidgetpage", response_class=HTMLResponse)
+async def chatbot_widget(request: Request):
+    return widgets.TemplateResponse("test_widget_page.html", {"request": request})
+
 def stream_ollama_response(generator_func, *args):
     def stream():
         for chunk in generator_func(*args):
